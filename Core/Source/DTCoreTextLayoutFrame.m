@@ -233,6 +233,13 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 			// at end of paragraph, record the spacing
 			CTParagraphStyleGetValueForSpecifier(paragraphStyle, kCTParagraphStyleSpecifierParagraphSpacing, sizeof(currentParaMetrics.paragraphSpacing), &currentParaMetrics.paragraphSpacing);
 		}
+
+		// BEGIN - MODIFICATION to display hyphens:
+        static const unichar softHypen = 0x00AD;
+		unichar lastChar = [_attributedStringFragment.string characterAtIndex:lineRange.location + lineRange.length-1];
+		
+		CTLineRef line;
+		// END - MODIFICATION
 		
 		BOOL truncateLine = ((self.numberOfLines>0 && [typesetLines count]+1==self.numberOfLines) ||
 							 (_numberLinesFitInFrame>0 && _numberLinesFitInFrame==[typesetLines count]+1));
@@ -240,13 +247,33 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		if(!truncateLine)
 		{
 			// create a line to fit
-			line = CTTypesetterCreateLine(typesetter, CFRangeMake(lineRange.location, lineRange.length));
+            if (lastChar == softHypen) {
+                NSMutableAttributedString* lineAttrString = [[_attributedStringFragment attributedSubstringFromRange:lineRange] mutableCopy];
+                
+                NSRange replaceRange = NSMakeRange(lineRange.length-1, 1);
+                [lineAttrString replaceCharactersInRange:replaceRange withString:@"-"];
+                
+                line = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)lineAttrString);
+                //            CTLineRef justifiedLine = CTLineCreateJustifiedLine(hyphenLine, 1.0f, rect.size.width);
+            } else {
+                line = CTTypesetterCreateLine(typesetter, CFRangeMake(lineRange.location, lineRange.length));
+            }
 		}
 		else
 		{
 			NSRange oldLineRange = lineRange;
 			lineRange.length = maxIndex-lineRange.location;
-			line = CTTypesetterCreateLine(typesetter, CFRangeMake(lineRange.location, lineRange.length));
+            if (lastChar == softHypen) {
+                NSMutableAttributedString* lineAttrString = [[_attributedStringFragment attributedSubstringFromRange:lineRange] mutableCopy];
+                
+                NSRange replaceRange = NSMakeRange(lineRange.length-1, 1);
+                [lineAttrString replaceCharactersInRange:replaceRange withString:@"-"];
+                
+                line = CTLineCreateWithAttributedString((__bridge CFAttributedStringRef)lineAttrString);
+                //            CTLineRef justifiedLine = CTLineCreateJustifiedLine(hyphenLine, 1.0f, rect.size.width);
+            } else {
+                line = CTTypesetterCreateLine(typesetter, CFRangeMake(lineRange.location, lineRange.length));
+            }
 
 			// convert lineBreakMode to CoreText type
 			CTLineTruncationType truncationType = DTCTLineTruncationTypeFromNSLineBreakMode(self.lineBreakMode);
