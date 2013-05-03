@@ -224,6 +224,7 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 		BOOL isFitting = NO;
 		CGFloat lessSpace = -4.0f;
 		
+		CTLineRef line;
 		while (!isFitting) {
 			lessSpace += 4.0f;
 
@@ -247,7 +248,6 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 			
 			truncateLine = ((self.numberOfLines>0 && [typesetLines count]+1==self.numberOfLines) ||
 							(_numberLinesFitInFrame>0 && _numberLinesFitInFrame==[typesetLines count]+1));
-			CTLineRef line;
 			if(!truncateLine)
 			{
 				// create a line to fit
@@ -314,10 +314,10 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 				CTLineRef elipsisLineRef = CTLineCreateWithAttributedString((__bridge  CFAttributedStringRef)(attribStr));
 				
 				// create the truncated line
-				line = CTLineCreateTruncatedLine(baseLine, availableSpace, truncationType, elipsisLineRef);
-				
-				// clean up
-				CFRelease(baseLine);
+//				line = CTLineCreateTruncatedLine(baseLine, availableSpace, truncationType, elipsisLineRef);
+//				
+//				// clean up
+//				CFRelease(baseLine);
 				CFRelease(elipsisLineRef);
 			}
 		}
@@ -1163,19 +1163,22 @@ static BOOL _DTCoreTextLayoutFramesShouldDrawDebugFrames = NO;
 			
 			if (attachment)
 			{
-				if (drawImages && [attachment conformsToProtocol:@protocol(DTTextAttachmentDrawing)])
+				if (drawImages)
 				{
-					id<DTTextAttachmentDrawing> drawableAttachment = (id<DTTextAttachmentDrawing>)attachment;
-					
-					// frame might be different due to image vertical alignment
-					CGFloat ascender = [attachment ascentForLayout];
-					CGFloat descender = [attachment descentForLayout];
-					
-					CGPoint origin = oneRun.frame.origin;
-					origin.y = self.frame.size.height - origin.y - ascender - descender;
-					CGRect flippedRect = CGRectMake(roundf(origin.x), roundf(origin.y), attachment.displaySize.width, attachment.displaySize.height);
-					
-					[drawableAttachment drawInRect:flippedRect context:context];
+					if (attachment.contentType == DTTextAttachmentTypeImage)
+					{
+						DTImage *image = (id)attachment.contents;
+						
+						// frame might be different due to image vertical alignment
+						CGFloat ascender = [attachment ascentForLayout];
+						CGFloat descender = [attachment descentForLayout];
+						
+						CGPoint origin = oneRun.frame.origin;
+						origin.y = self.frame.size.height - origin.y - ascender - descender;
+						CGRect flippedRect = CGRectMake(roundf(origin.x), roundf(origin.y), attachment.displaySize.width, attachment.displaySize.height);
+						
+						CGContextDrawImage(context, flippedRect, image.CGImage);
+					}
 				}
 			}
 			else
