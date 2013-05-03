@@ -16,6 +16,7 @@
 	NSString *_HTMLString;
 	
 	CGFloat _textScale;
+	BOOL _useAppleConvertedSpace;
 	BOOL _iOS6TagsPossible;
 	
 	NSMutableDictionary *_styleLookup;
@@ -28,7 +29,9 @@
 	if (self)
 	{
 		_attributedString = attributedString;
-		
+
+		_useAppleConvertedSpace = YES;
+
 		// default is to leave px sizes as is
 		_textScale = 1.0f;
 		
@@ -384,19 +387,28 @@
 			}
 		}
 		
+		// Add dir="auto" if the writing direction is unknown
+		NSString *directionAttributeString = @"";
+		if (paraStyle)
+		{
+			DTCoreTextParagraphStyle *para = [DTCoreTextParagraphStyle paragraphStyleWithCTParagraphStyle:paraStyle];
+			if (para.baseWritingDirection == kCTWritingDirectionNatural)
+				directionAttributeString = @" dir=\"auto\"";
+		}
+		
 		if ([paraStyleString length])
 		{
 			NSString *className = [self _styleClassForElement:blockElement style:paraStyleString];
 			
 			if (fragment) {
-				[retString appendFormat:@"<%@ style=\"%@\">", blockElement, paraStyleString];
+				[retString appendFormat:@"<%@ style=\"%@\"%@>", blockElement, paraStyleString, directionAttributeString];
 			} else {
-				[retString appendFormat:@"<%@ class=\"%@\">", blockElement, className];
+				[retString appendFormat:@"<%@ class=\"%@\"%@>", blockElement, className, directionAttributeString];
 			}
 		}
 		else
 		{
-			[retString appendFormat:@"<%@>", blockElement];
+			[retString appendFormat:@"<%@%@>", blockElement, directionAttributeString];
 		}
 		
 		// add the attributed string ranges in this paragraph to the paragraph container
@@ -783,7 +795,11 @@
 		[output appendFormat:@"<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01//EN\" \"http://www.w3.org/TR/html40/strict.dtd\">\n<html>\n<head>\n<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\" />\n<meta http-equiv=\"Content-Style-Type\" content=\"text/css\" />\n<meta name=\"Generator\" content=\"DTCoreText HTML Writer\" />\n<style type=\"text/css\">\n%@</style>\n</head>\n<body>\n", styleBlock];
 	}
 	
-	[output appendString:[retString stringByAddingAppleConvertedSpace]];
+	if (_useAppleConvertedSpace) {
+		[output appendString:[retString stringByAddingAppleConvertedSpace]];
+	} else {
+		[output appendString:retString];
+	}
 
 	if (!fragment) {
 		[output appendString:@"</body>\n</html>\n"];

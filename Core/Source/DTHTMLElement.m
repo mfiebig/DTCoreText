@@ -37,6 +37,12 @@ NSDictionary *_classesForNames = nil;
 
 + (void)initialize
 {
+	// prevent calling from children
+	if (self != [DTHTMLElement class])
+	{
+		return;
+	}
+	
 	// lookup table so that we quickly get the correct class to instantiate for special tags
 	NSMutableDictionary *tmpDict = [[NSMutableDictionary alloc] init];
 	
@@ -397,8 +403,11 @@ NSDictionary *_classesForNames = nil;
 					}
 					else
 					{
-						// need to insure that paragraph and font style as properly set
-						[tmpString appendString:@"\n" withParagraphStyle:self.paragraphStyle fontDescriptor:self.fontDescriptor];
+						// tmpString has no attributes to extend, so we make a new string with attributes
+						
+						// need all attributes to e.g. extend list to include this character
+						NSAttributedString *attributedString = [[NSAttributedString alloc] initWithString:@"\n" attributes:[self attributesDictionary]];
+						[tmpString appendAttributedString:attributedString];
 					}
 				}
 			}
@@ -1240,6 +1249,29 @@ NSDictionary *_classesForNames = nil;
 		else
 		{
 			// other values are invalid and will be ignored
+		}
+	}
+
+	// handles align="justify"
+	NSString *align = [self attributeForKey:@"align"];
+
+	if (align)
+	{
+		if ([align isEqualToString: @"justify"])
+		{
+			_paragraphStyle.alignment = kCTTextAlignmentJustified;
+		}
+		else if ([align isEqualToString: @"left"])
+		{
+			_paragraphStyle.alignment = kCTTextAlignmentLeft;
+		}
+		else if ([align isEqualToString: @"center"])
+		{
+			_paragraphStyle.alignment = kCTTextAlignmentCenter;
+		}
+		else if ([align isEqualToString: @"right"])
+		{
+			_paragraphStyle.alignment = kCTTextAlignmentRight;
 		}
 	}
 }

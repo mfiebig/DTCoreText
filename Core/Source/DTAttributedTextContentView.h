@@ -129,6 +129,11 @@ typedef NSUInteger DTAttributedTextContentViewRelayoutMask;
 	NSMutableDictionary *customViewsForAttachmentsIndex;
 	
 	BOOL _flexibleHeight;
+	
+	// for layoutFrame
+	NSInteger _numberOfLines;
+	NSLineBreakMode _lineBreakMode;
+	NSAttributedString *_truncationString;
 }
 
 
@@ -238,6 +243,12 @@ typedef NSUInteger DTAttributedTextContentViewRelayoutMask;
  */
 @property (nonatomic) UIEdgeInsets edgeInsets;
 
+
+/**
+ Specifies if the receiver should add extra leading the first line of its content
+ 
+ */
+@property (nonatomic) BOOL shouldAddFirstLineLeading;
 
 /**
  Specifies if the receiver should draw image text attachments.

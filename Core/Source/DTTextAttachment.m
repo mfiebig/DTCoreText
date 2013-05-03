@@ -108,13 +108,29 @@ static NSCache *imageCache = nil;
 	{ 
 		if ([src hasPrefix:@"data:"])
 		{
-			NSRange range = [src rangeOfString:@"base64,"];
+			NSString *cleanStr = [[src componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]] componentsJoinedByString:@""];
 			
-			if (range.length)
+			NSURL *dataURL = [NSURL URLWithString:cleanStr];
+			
+			// try native decoding first
+			NSData *decodedData = [NSData dataWithContentsOfURL:dataURL];
+			
+			// try own base64 decoding
+			if (!decodedData)
 			{
-				NSString *encodedData = [src substringFromIndex:range.location + range.length];
-				NSData *decodedData = [DTBase64Coding dataByDecodingString:encodedData];
+				NSRange range = [cleanStr rangeOfString:@"base64,"];
 				
+				if (range.length)
+				{
+					NSString *encodedData = [cleanStr substringFromIndex:range.location + range.length];
+					
+					decodedData = [DTBase64Coding dataByDecodingString:encodedData];
+				}
+			}
+			
+			// if we have image data, get the default display size
+			if (decodedData)
+			{
 				decodedImage = [[DTImage alloc] initWithData:decodedData];
 				
 				if (!displaySize.width || !displaySize.height)
@@ -176,16 +192,27 @@ static NSCache *imageCache = nil;
 		// if it's a local file we need to inspect it to get it's dimensions
 		if (!displaySize.width || !displaySize.height)
 		{
-			// inspect local file
-			if ([contentURL isFileURL])
+			// let's check if we have a cached image already then we can inspect that
+			DTImage *image = [[DTTextAttachment sharedImageCache] objectForKey:[contentURL absoluteString]];
+			
+			if (!image)
 			{
-				DTImage *image = [[DTTextAttachment sharedImageCache] objectForKey:[contentURL path]];
-				if (!image)
+				// only local files we can directly load without punishment
+				if ([contentURL isFileURL])
 				{
 					image = [[DTImage alloc] initWithContentsOfFile:[contentURL path]];
-					[[DTTextAttachment sharedImageCache] setObject:image forKey:[contentURL path]];
 				}
-
+				
+				// cache that for later
+				if (image)
+				{
+					[[DTTextAttachment sharedImageCache] setObject:image forKey:[contentURL absoluteString]];
+				}
+			}
+			
+			// we have an image, so we can set the original size and default display size
+			if (image)
+			{
 				originalSize = image.size;
 				
 				// initial display size matches original
@@ -193,8 +220,6 @@ static NSCache *imageCache = nil;
 			}
 		}
 	}
-
-	
 	
 	// if you have no display size we assume original size
 	if (CGSizeEqualToSize(displaySize, CGSizeZero))
@@ -205,17 +230,11 @@ static NSCache *imageCache = nil;
 	// adjust the display size if there is a restriction and it's too large
 	CGSize adjustedSize = displaySize;
 	
-	if (maxImageSize.width>0 && maxImageSize.height>0)
+	if (!CGSizeEqualToSize(maxImageSize, CGSizeZero))
 	{
 		if (maxImageSize.width < displaySize.width || maxImageSize.height < displaySize.height)
 		{
 			adjustedSize = sizeThatFitsKeepingAspectRatio(displaySize, maxImageSize);
-		}
-		
-		// still no display size? use max size
-		if (CGSizeEqualToSize(displaySize, CGSizeZero))
-		{
-			adjustedSize = maxImageSize;
 		}
 	}
 		
@@ -353,12 +372,20 @@ static NSCache *imageCache = nil;
 {
 	if (!_contents)
 	{
-		if (_contentType == DTTextAttachmentTypeImage && _contentURL && [_contentURL isFileURL])
+		if (_contentType == DTTextAttachmentTypeImage && _contentURL)
 		{
-			DTImage *image = [[DTTextAttachment sharedImageCache] objectForKey:[_contentURL path]];
-			if (!image) {
+			DTImage *image = [[DTTextAttachment sharedImageCache] objectForKey:[_contentURL absoluteString]];
+			
+			// only local files can be loaded into cache
+			if (!image && [_contentURL isFileURL])
+			{
 				image = [[DTImage alloc] initWithContentsOfFile:[_contentURL path]];
-				[[DTTextAttachment sharedImageCache] setObject:image forKey:[_contentURL path]];
+				
+				// cache it
+				if (image)
+				{
+					[[DTTextAttachment sharedImageCache] setObject:image forKey:[_contentURL absoluteString]];
+				}
 			}
 
 			return image;
